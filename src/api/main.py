@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from .routes import workflows, hitl, signing
 from fastapi.middleware.cors import CORSMiddleware
+from src.db.database import db
 import logging
 import sys
 
@@ -59,7 +60,9 @@ async def startup_event():
     logger.info("=== CLEANTRANSPARENCY v2 API iniciando ===")
     logger.info("Puerto: 8080")
     logger.info("Docs disponibles en: /docs")
-    
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("=== CLEANTRANSPARENCY v2 API detenido ===")
+#Conectar a la base de datos    
+   try:
+        await db.connect()
+        logger.info("✅ Base de datos conectada")
+    except Exception as e:
+        logger.error(f"❌ Error conectando a BD: {e}"

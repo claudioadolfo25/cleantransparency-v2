@@ -20,7 +20,7 @@ class Art17State(TypedDict, total=False):
     certificado_id: Optional[str]
     timestamp_final: Optional[str]
     hash_final: Optional[str]
-
+    _save_to_db: Optional[bool]
 
 def compute_hash(state: Art17State):
     serialized = str(state).encode()
@@ -29,6 +29,7 @@ def compute_hash(state: Art17State):
 async def ingest(state: Art17State):
     state["ingest_timestamp"] = datetime.utcnow().isoformat()
     state["hash_ingest"] = compute_hash(state)
+    state["_save_to_db"] = True
     return state
 
 async def risk_check(state: Art17State):
