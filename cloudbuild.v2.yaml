@@ -3,7 +3,7 @@ steps:
 - name: gcr.io/cloud-builders/docker
   args: [
     "build",
-    "-f", "Dockerfile.v2",
+    "-f", "Dockerfile",
     "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:$SHORT_SHA",
     "."
   ]
