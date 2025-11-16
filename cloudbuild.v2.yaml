@@ -1,5 +1,4 @@
 steps:
-  # Build de la imagen
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -8,14 +7,12 @@ steps:
       - '.'
     timeout: 1800s
 
-  # Push de la imagen
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
       - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cleantransparency-v2/cleantransparency-v2-image:latest'
     timeout: 600s
 
-  # Deploy a Cloud Run con timeout extendido
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:

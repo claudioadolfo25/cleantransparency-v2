@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from services.hitl import resolve_hitl_request
+from src.services.hitl import resolve_hitl_request
 
 router = APIRouter()
 

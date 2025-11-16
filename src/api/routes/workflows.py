@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from workflows.art17.flow import run_art17_workflow
+from src.workflows.art17.flow import run_art17_workflow
 from pydantic import BaseModel
 
 router = APIRouter()
