@@ -1,32 +1,53 @@
 steps:
-# ---------- Build ----------
-- name: gcr.io/cloud-builders/docker
-  args: [
-    "build",
-    "-f", "Dockerfile",
-    "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:latest",
-    "."
-  ]
-# ---------- Push ----------
-- name: gcr.io/cloud-builders/docker
-  args: [
-    "push",
-    "us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:latest"
-  ]
-# ---------- Deploy ----------
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  entrypoint: gcloud
-  args:
-    - run
-    - deploy
-    - cleantransparency-v2
-    - --image=us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:latest
-    - --region=us-central1
-    - --platform=managed
-    - --allow-unauthenticated
-    - --update-secrets=/secrets/p12_certificado_v2=p12_certificado_v2:latest
-    - --update-secrets=P12_PASSWORD=p12_pwd_v2:latest
-    - --set-env-vars=ENVIRONMENT=production
-timeout: "1200s"
+  # Build de la imagen
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cleantransparency-v2/cleantransparency-v2-image:latest'
+      - '.'
+    timeout: 1800s
+
+  # Push de la imagen
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cleantransparency-v2/cleantransparency-v2-image:latest'
+    timeout: 600s
+
+  # Deploy a Cloud Run con timeout extendido
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'cleantransparency-v2'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cleantransparency-v2/cleantransparency-v2-image:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--timeout'
+      - '300'
+      - '--cpu'
+      - '2'
+      - '--memory'
+      - '2Gi'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '10'
+      - '--port'
+      - '8080'
+      - '--startup-cpu-boost'
+      - '--execution-environment'
+      - 'gen2'
+    timeout: 900s
+
+timeout: 3600s
+
 options:
+  machineType: 'E2_HIGHCPU_8'
   logging: CLOUD_LOGGING_ONLY

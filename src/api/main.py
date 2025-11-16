@@ -1,10 +1,25 @@
 from fastapi import FastAPI
 from .routes import workflows, hitl, signing
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+import sys
 
-app = FastAPI(title="CLEANTRANSPARENCY v2 API", version="2.0")
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
-# CORS básico (luego lo endurecemos)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="CLEANTRANSPARENCY v2 API",
+    version="2.0",
+    description="API para certificacion Art. 17 Ley 21.595"
+)
+
+# CORS basico (luego lo endurecemos)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,10 +33,33 @@ app.include_router(workflows.router, prefix="/api/v2/workflows", tags=["workflow
 app.include_router(hitl.router, prefix="/api/v2/hitl", tags=["hitl"])
 app.include_router(signing.router, prefix="/api/v2/sign", tags=["signing"])
 
+# Health check endpoint (CRITICO para Cloud Run)
+@app.get("/health")
+async def health_check():
+    """Health check endpoint para Cloud Run"""
+    return {
+        "status": "healthy",
+        "service": "cleantransparency-v2",
+        "version": "2.0"
+    }
+
+# Root endpoint
 @app.get("/")
 async def root():
     return {
         "status": "ok",
         "message": "CLEANTRANSPARENCY v2 activo",
-        "version": "2.0"
+        "version": "2.0",
+        "docs": "/docs"
     }
+
+# Eventos de lifecycle
+@app.on_event("startup")
+async def startup_event():
+    logger.info("=== CLEANTRANSPARENCY v2 API iniciando ===")
+    logger.info("Puerto: 8080")
+    logger.info("Docs disponibles en: /docs")
+    
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("=== CLEANTRANSPARENCY v2 API detenido ===")
