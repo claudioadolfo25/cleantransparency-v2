@@ -7,14 +7,12 @@ steps:
     "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:$SHORT_SHA",
     "."
   ]
-
 # ---------- Push ----------
 - name: gcr.io/cloud-builders/docker
   args: [
     "push",
     "us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:$SHORT_SHA"
   ]
-
 # ---------- Deploy ----------
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk
   entrypoint: gcloud
@@ -26,16 +24,12 @@ steps:
     - --region=us-central1
     - --platform=managed
     - --allow-unauthenticated
-
-    # MOUNT SECRET FILE
-    - --set-secrets=P12_FILE=/secrets/p12_certificado_v2:latest
-
+    # MOUNT SECRET FILE (formato corregido)
+    - --update-secrets=/secrets/p12_certificado_v2=p12_certificado_v2:latest
     # SECRET ENV VAR
-    - --set-secrets=P12_PASSWORD=p12_pwd_v2:latest
-
+    - --update-secrets=P12_PASSWORD=p12_pwd_v2:latest
     # Extra envs
     - --set-env-vars=ENVIRONMENT=production
-
 timeout: "1200s"
 options:
   logging: CLOUD_LOGGING_ONLY
