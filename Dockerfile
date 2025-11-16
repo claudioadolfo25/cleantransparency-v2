@@ -1,30 +1,26 @@
 FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 # Dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    gcc \
     libpq-dev \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    pkg-config \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Instalar poetry
-RUN curl -sSL https://install.python-poetry.org | python3 - && \
-    export PATH="/root/.local/bin:$PATH"
+# Instalar dependencias Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-ENV PATH="/root/.local/bin:$PATH"
+# Copiar código fuente
+COPY . .
 
-# Configurar Poetry para crear virtualenv en el proyecto
-RUN poetry config virtualenvs.in-project true
+EXPOSE 8080
 
-# Copiar archivos de configuración y instalar dependencias
-COPY pyproject.toml poetry.lock* /app/
-RUN poetry install --only main --no-root --no-interaction --no-ansi
-
-# Copiar el código fuente después
-COPY . /app/
-
-# Usar el virtualenv directamente
-CMD [".venv/bin/uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
-
+# Comando usando uvicorn instalado globalmente
+CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
