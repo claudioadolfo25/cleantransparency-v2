@@ -18,14 +18,12 @@ ENV PATH="/root/.local/bin:$PATH"
 # Configurar Poetry para crear virtualenv en el proyecto
 RUN poetry config virtualenvs.in-project true
 
-# Copiar archivos de configuración
+# Copiar archivos de configuración y instalar dependencias
 COPY pyproject.toml poetry.lock* /app/
-
-# Instalar dependencias primero (sin código fuente)
 RUN poetry install --only main --no-root --no-interaction --no-ansi
 
-# Ahora copiar el código fuente
+# Copiar el código fuente después
 COPY . /app/
 
-# Usar el virtualenv directamente en lugar de poetry run
+# Usar el virtualenv directamente
 CMD [".venv/bin/uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
