@@ -21,10 +21,11 @@ RUN poetry config virtualenvs.in-project true
 # Copiar archivos de configuración
 COPY pyproject.toml poetry.lock* /app/
 
-# Copiar TODO el código fuente
+# Instalar dependencias primero (sin código fuente)
+RUN poetry install --only main --no-root --no-interaction --no-ansi
+
+# Ahora copiar el código fuente
 COPY . /app/
 
-# Instalar dependencias (sin --no-root)
-RUN poetry install --only main --no-interaction --no-ansi
-
-CMD ["sh", "-c", "poetry run uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Usar el virtualenv directamente en lugar de poetry run
+CMD [".venv/bin/uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
