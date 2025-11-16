@@ -29,6 +29,9 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--update-secrets=/secrets/p12_certificado_v2=p12_certificado_v2:latest'
+      - '--update-secrets=P12_PASSWORD=p12_pwd_v2:latest'
+      - '--set-env-vars=ENVIRONMENT=production'
       - '--timeout'
       - '300'
       - '--cpu'
@@ -41,7 +44,7 @@ steps:
       - '10'
       - '--port'
       - '8080'
-      - '--startup-cpu-boost'
+      - '--cpu-boost'
       - '--execution-environment'
       - 'gen2'
     timeout: 900s
