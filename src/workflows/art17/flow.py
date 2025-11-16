@@ -27,7 +27,7 @@ async def risk_check(state: Art17State):
     return state
 
 async def compliance_check(state: Art17State):
-    # Placeholder real: análisis Ley 21.595 + 21.634
+    # Placeholder real: analisis Ley 21.595 + 21.634
     state["cumplimiento"] = True
     state["hash_compliance"] = compute_hash(state)
     return state
