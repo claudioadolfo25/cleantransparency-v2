@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.routes import workflows, hitl, signing
+from .routes import workflows, hitl, signing
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="CLEANTRANSPARENCY v2 API", version="2.0")
