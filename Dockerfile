@@ -1,35 +1,29 @@
-steps:
-# ---------- Build ----------
-- name: gcr.io/cloud-builders/docker
-  args: [
-    "build",
-    "-f", "Dockerfile",
-    "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:latest",
-    "."
-  ]
-# ---------- Push ----------
-- name: gcr.io/cloud-builders/docker
-  args: [
-    "push",
-    "us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:latest"
-  ]
-# ---------- Deploy ----------
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
-  entrypoint: gcloud
-  args:
-    - run
-    - deploy
-    - cleantransparency-v2
-    - --image=us-central1-docker.pkg.dev/$PROJECT_ID/cleantransparency-v2/cleantransparency-v2-image:latest
-    - --region=us-central1
-    - --platform=managed
-    - --allow-unauthenticated
-    # MOUNT SECRET FILE (formato corregido)
-    - --update-secrets=/secrets/p12_certificado_v2=p12_certificado_v2:latest
-    # SECRET ENV VAR
-    - --update-secrets=P12_PASSWORD=p12_pwd_v2:latest
-    # Extra envs
-    - --set-env-vars=ENVIRONMENT=production
-timeout: "1200s"
-options:
-  logging: CLOUD_LOGGING_ONLY
+FROM python:3.11-slim
+WORKDIR /app
+
+# Dependencias del sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar poetry
+RUN curl -sSL https://install.python-poetry.org | python3 - && \
+    export PATH="/root/.local/bin:$PATH"
+
+ENV PATH="/root/.local/bin:$PATH"
+
+# Configurar Poetry para crear virtualenv en el proyecto
+RUN poetry config virtualenvs.in-project true
+
+# Copiar archivos de configuración y instalar dependencias
+COPY pyproject.toml poetry.lock* /app/
+RUN poetry install --only main --no-root --no-interaction --no-ansi
+
+# Copiar el código fuente después
+COPY . /app/
+
+# Usar el virtualenv directamente
+CMD [".venv/bin/uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
