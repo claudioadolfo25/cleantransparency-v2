@@ -1,5 +1,4 @@
 FROM python:3.11-slim
-
 WORKDIR /app
 
 # Dependencias del sistema
@@ -10,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar poetry
+# Instalar poetry temporalmente
 RUN curl -sSL https://install.python-poetry.org | python3 - && \
     export PATH="/root/.local/bin:$PATH"
 
@@ -18,8 +17,12 @@ ENV PATH="/root/.local/bin:$PATH"
 
 COPY pyproject.toml poetry.lock* /app/
 
-RUN poetry install --only main --no-root
+# Exportar dependencias a requirements.txt
+RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --only main
+
+# Instalar con pip
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app/
-CMD ["sh", "-c", "poetry run uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
 
+CMD ["sh", "-c", "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
