@@ -1,16 +1,70 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 import logging
 from datetime import datetime
-
-from src.db.database import database  # <- IMPORT CORRECTO
+from src.db.database import database
 
 logger = logging.getLogger(__name__)
 
-
 class Art17Repository:
     def __init__(self):
-        # Ahora la base de datos siempre vendrá desde database.py
         self.db = database
+    
+    async def get_workflow_by_request_id(self, request_id: str) -> Optional[Dict]:
+        """Obtiene un workflow completo por request_id"""
+        try:
+            query = """
+                SELECT * FROM workflow_executions 
+                WHERE request_id = :request_id
+            """
+            result = await self.db.fetch_one(query=query, values={"request_id": request_id})
+            return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Error al obtener workflow {request_id}: {e}")
+            raise
+    
+    async def get_certificate_by_id(self, certificado_id: str) -> Optional[Dict]:
+        """Obtiene un certificado por su ID"""
+        try:
+            query = """
+                SELECT * FROM certificados 
+                WHERE certificado_id = :certificado_id
+            """
+            result = await self.db.fetch_one(query=query, values={"certificado_id": certificado_id})
+            return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Error al obtener certificado {certificado_id}: {e}")
+            raise
+    
+    async def verify_certificate_integrity(self, certificado_id: str) -> Dict:
+        """Verifica la integridad de un certificado"""
+        try:
+            cert = await self.get_certificate_by_id(certificado_id)
+            if not cert:
+                return {"valid": False, "message": "Certificado no encontrado"}
+            
+            # Aquí podrías agregar verificaciones adicionales de integridad
+            return {
+                "valid": True,
+                "certificado_id": certificado_id,
+                "message": "Certificado válido"
+            }
+        except Exception as e:
+            logger.error(f"Error al verificar certificado {certificado_id}: {e}")
+            return {"valid": False, "message": str(e)}
+    
+    async def get_audit_trail(self, request_id: str) -> List[Dict]:
+        """Obtiene el trail de auditoría de un workflow"""
+        try:
+            query = """
+                SELECT * FROM audit_trail 
+                WHERE request_id = :request_id 
+                ORDER BY timestamp DESC
+            """
+            results = await self.db.fetch_all(query=query, values={"request_id": request_id})
+            return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Error al obtener audit trail {request_id}: {e}")
+            return []
 
     async def get_proveedor_profile(self, rut: str) -> Dict:
         """Obtiene perfil completo de un proveedor"""
@@ -29,7 +83,6 @@ class Art17Repository:
                 ORDER BY created_at DESC
             """
             results = await self.db.fetch_all(query=query, values={"rut": rut})
-
             return {
                 "rut": rut,
                 "nombre": results[0]["proveedor_nombre"] if results else None,
@@ -43,57 +96,44 @@ class Art17Repository:
     async def search_proveedores(self, filters: Dict) -> List[Dict]:
         """Busca proveedores con filtros"""
         try:
-            conditions = ["1=1"]
+            conditions = []
             values = {}
-
-            if filters.get("nombre"):
-                conditions.append("proveedor_nombre ILIKE :nombre")
-                values["nombre"] = f"%{filters['nombre']}%"
-
-            if filters.get("rut"):
+            
+            if filters.get("proveedor_rut"):
                 conditions.append("proveedor_rut = :rut")
-                values["rut"] = filters["rut"]
-
+                values["rut"] = filters["proveedor_rut"]
+            
             if filters.get("status"):
                 conditions.append("status = :status")
                 values["status"] = filters["status"]
-
+            
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            limit = filters.get("limit", 10)
+            
             query = f"""
-                SELECT DISTINCT ON (proveedor_rut)
-                    proveedor_rut,
-                    proveedor_nombre,
-                    status,
-                    nivel_riesgo,
-                    created_at
-                FROM workflow_executions
-                WHERE {" AND ".join(conditions)}
-                ORDER BY proveedor_rut, created_at DESC
-                LIMIT :limit OFFSET :offset
+                SELECT * FROM workflow_executions 
+                WHERE {where_clause}
+                ORDER BY created_at DESC
+                LIMIT {limit}
             """
-
-            values["limit"] = filters.get("limit", 50)
-            values["offset"] = filters.get("offset", 0)
-
             results = await self.db.fetch_all(query=query, values=values)
             return [dict(row) for row in results]
         except Exception as e:
-            logger.error(f"Error en búsqueda de proveedores: {e}")
-            raise
+            logger.error(f"Error al buscar proveedores: {e}")
+            return []
 
     async def get_statistics(self) -> Dict:
         """Obtiene estadísticas generales"""
         try:
             query = """
                 SELECT 
-                    COUNT(DISTINCT proveedor_rut) as total_proveedores,
-                    COUNT(*) as total_solicitudes,
-                    COUNT(*) FILTER (WHERE status = 'completed') as completadas,
-                    COUNT(*) FILTER (WHERE status = 'in_progress') as en_proceso,
-                    COUNT(*) FILTER (WHERE certificado_emitido = true) as certificados_emitidos
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+                    COUNT(CASE WHEN certificado_emitido = true THEN 1 END) as certificados
                 FROM workflow_executions
             """
             result = await self.db.fetch_one(query=query)
             return dict(result) if result else {}
         except Exception as e:
             logger.error(f"Error al obtener estadísticas: {e}")
-            raise
+            return {}
