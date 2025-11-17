@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.db.database import db
 import logging
 import sys
+import os
 
 # Importar routers
 from src.api.routes import workflows, hitl, signing, query_routes, search_stats_routes
@@ -34,8 +35,38 @@ app.add_middleware(
 app.include_router(workflows.router)
 app.include_router(hitl.router)
 app.include_router(signing.router)
-app.include_router(query_routes.router)  # FASE 1
-app.include_router(search_stats_routes.router)  # 🆕 FASE 2A
+app.include_router(query_routes.router)
+app.include_router(search_stats_routes.router)
+
+@app.on_event("startup")
+async def startup():
+    """Inicializar conexiones al arranque"""
+    logger.info("=== CLEANTRANSPARENCY v2 API iniciando ===")
+    logger.info(f"Puerto: {os.getenv('PORT', '8080')}")
+    logger.info("Docs disponibles en: /docs")
+    logger.info("🆕 FASE 2A: Búsquedas y Estadísticas activos")
+    
+    # Intentar conectar a la base de datos
+    try:
+        database_url = os.getenv("DATABASE_URL")
+        if database_url:
+            logger.info("Conectando a PostgreSQL (Neon)...")
+            await db.connect(database_url)
+            logger.info("✅ Base de datos conectada")
+        else:
+            logger.warning("⚠️ DATABASE_URL no configurada, continuando sin BD")
+    except Exception as e:
+        logger.error(f"❌ Error conectando a base de datos: {e}")
+        logger.warning("⚠️ Continuando sin conexión a BD")
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Cerrar conexiones al apagar"""
+    logger.info("Cerrando conexión a base de datos")
+    try:
+        await db.disconnect()
+    except Exception as e:
+        logger.error(f"Error cerrando BD: {e}")
 
 # Health check endpoint (CRITICO para Cloud Run)
 @app.get("/health")
@@ -44,46 +75,17 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "cleantransparency-v2",
-        "version": "2.0-fase2a"
+        "version": "2.0-fase2a",
+        "database_connected": db.is_connected()
     }
 
-# Root endpoint
 @app.get("/")
 async def root():
+    """Endpoint raíz"""
     return {
         "status": "ok",
-        "message": "CLEANTRANSPARENCY v2 - FASE 2A: Búsquedas y Estadísticas",
-        "version": "2.0-fase2a",
-        "docs": "/docs",
-        "fase_1_endpoints": {
-            "workflow": "/api/v2/workflows/art17/{request_id}",
-            "certificate": "/api/v2/certificates/{certificado_id}",
-            "verify": "/api/v2/certificates/{certificado_id}/verify",
-            "audit_trail": "/api/v2/audit/trail/{request_id}"
-        },
-        "fase_2a_endpoints": {
-            "proveedor_profile": "/api/v2/proveedores/{rut}/profile",
-            "search": "/api/v2/workflows/art17/search",
-            "statistics": "/api/v2/workflows/art17/stats/summary"
-        }
+        "service": "workflows",
+        "available_endpoints": [
+            "POST /art17/run"
+        ]
     }
-
-# Eventos de lifecycle
-@app.on_event("startup")
-async def startup_event():
-    logger.info("=== CLEANTRANSPARENCY v2 API iniciando ===")
-    logger.info("Puerto: 8080")
-    logger.info("Docs disponibles en: /docs")
-    logger.info("🆕 FASE 2A: Búsquedas y Estadísticas activos")
-    
-    # Conectar a la base de datos
-    try:
-        await db.connect()
-        logger.info("✅ Base de datos conectada")
-    except Exception as e:
-        logger.error(f"❌ Error conectando a BD: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Cerrando conexión a base de datos")
-    await db.disconnect()
