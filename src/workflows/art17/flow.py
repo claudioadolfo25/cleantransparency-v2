@@ -36,11 +36,17 @@ async def ingest(state: Art17State):
     state["hash_ingest"] = compute_hash(state)
     
     try:
-        if db.pool:
-            repo = Art17Repository(db)
-            workflow_id = await repo.create_workflow(state)
-            state["workflow_id"] = workflow_id
-            logger.info(f"✅ Workflow {workflow_id} creado en BD")
+        if db.db and db.is_connected():
+            repo = Art17Repository(db.db)
+            await repo.save_request({
+                "request_id": state["request_id"],
+                "proveedor_rut": state["proveedor_rut"],
+                "proveedor_nombre": state.get("proveedor_nombre"),
+                "monto_contrato": state.get("monto_contrato"),
+                "objeto_contrato": state.get("objeto_contrato"),
+                "status": "processing"
+            })
+            logger.info(f"✅ Request {state['request_id']} guardado")
         else:
             logger.warning("⚠️ BD no disponible")
     except Exception as e:
@@ -49,38 +55,16 @@ async def ingest(state: Art17State):
     return state
 
 async def risk_check(state: Art17State):
-    from src.db.database import db
-    from src.db.repositories.art17_repository import Art17Repository
-    
     rut = state.get("proveedor_rut", "")
     state["riesgo"] = "BAJO" if rut.endswith("0") else "MEDIO"
     state["hash_riesgo"] = compute_hash(state)
-    
-    try:
-        if db.pool and state.get("request_id"):
-            repo = Art17Repository(db)
-            await repo.update_risk_check(state["request_id"], state)
-            logger.info(f"✅ Risk check: {state['riesgo']}")
-    except Exception as e:
-        logger.error(f"❌ Error actualizando risk: {e}")
-    
+    logger.info(f"✅ Risk check: {state['riesgo']}")
     return state
 
 async def compliance_check(state: Art17State):
-    from src.db.database import db
-    from src.db.repositories.art17_repository import Art17Repository
-    
     state["cumplimiento"] = True
     state["hash_compliance"] = compute_hash(state)
-    
-    try:
-        if db.pool and state.get("request_id"):
-            repo = Art17Repository(db)
-            await repo.update_compliance_check(state["request_id"], state)
-            logger.info(f"✅ Compliance: {state['cumplimiento']}")
-    except Exception as e:
-        logger.error(f"❌ Error actualizando compliance: {e}")
-    
+    logger.info(f"✅ Compliance: {state['cumplimiento']}")
     return state
 
 async def final_report(state: Art17State):
@@ -92,21 +76,42 @@ async def final_report(state: Art17State):
     state["hash_final"] = compute_hash(state)
     
     try:
-        if db.pool and state.get("request_id"):
-            repo = Art17Repository(db)
-            await repo.finalize_workflow(state["request_id"], state)
-            logger.info(f"✅ Certificado: {state['certificado_id']}")
+        if db.db and db.is_connected():
+            repo = Art17Repository(db.db)
             
-            await repo.log_audit_event(
-                workflow_id=state.get("workflow_id"),
-                event_type="workflow_completed",
-                event_data={
-                    "certificado_id": state["certificado_id"],
-                    "riesgo": state["riesgo"],
-                    "cumplimiento": state["cumplimiento"]
-                },
-                actor="system"
-            )
+            workflow_id = await repo.save_workflow_execution({
+                "request_id": state["request_id"],
+                "workflow_type": "art17",
+                "ingest_timestamp": state["ingest_timestamp"],
+                "hash_ingest": state["hash_ingest"],
+                "riesgo": state["riesgo"],
+                "hash_riesgo": state["hash_riesgo"],
+                "cumplimiento": state["cumplimiento"],
+                "hash_compliance": state["hash_compliance"],
+                "hash_final": state["hash_final"],
+                "timestamp_final": state["timestamp_final"],
+                "metadata": "{}"
+            })
+            
+            state["workflow_id"] = workflow_id
+            
+            await repo.save_certificate({
+                "certificado_id": state["certificado_id"],
+                "request_id": state["request_id"],
+                "hash_final": state["hash_final"],
+                "issued_at": state["timestamp_final"]
+            })
+            
+            await repo.save_request({
+                "request_id": state["request_id"],
+                "proveedor_rut": state["proveedor_rut"],
+                "proveedor_nombre": state.get("proveedor_nombre"),
+                "monto_contrato": state.get("monto_contrato"),
+                "objeto_contrato": state.get("objeto_contrato"),
+                "status": "completed"
+            })
+            
+            logger.info(f"✅ Certificado: {state['certificado_id']}")
     except Exception as e:
         logger.error(f"❌ Error finalizando: {e}")
     

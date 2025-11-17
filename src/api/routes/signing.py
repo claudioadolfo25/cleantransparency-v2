@@ -7,6 +7,17 @@ router = APIRouter()
 class SignHashRequest(BaseModel):
     hash_hex: str
 
+@router.get("/")
+def signing_root():
+    return {
+        "status": "ok",
+        "service": "signing",
+        "available_endpoints": [
+            "POST /hash",
+            "GET /test"
+        ]
+    }
+
 @router.post("/hash")
 def sign_hash(payload: SignHashRequest):
     # Nota: en produccion usa /secrets/p12_certificado_v2

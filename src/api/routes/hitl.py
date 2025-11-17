@@ -10,6 +10,16 @@ class HitlDecision(BaseModel):
     reviewer: str
     notes: str = ""
 
+@router.get("/")
+async def hitl_root():
+    return {
+        "status": "ok",
+        "service": "hitl",
+        "available_endpoints": [
+            "POST /resolve"
+        ]
+    }
+
 @router.post("/resolve")
 async def resolve_hitl(decision: HitlDecision):
     await resolve_hitl_request(decision.dict())
