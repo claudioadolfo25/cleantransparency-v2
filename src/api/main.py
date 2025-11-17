@@ -35,9 +35,8 @@ app.add_middleware(
 app.include_router(workflows.router)
 app.include_router(hitl.router)
 app.include_router(signing.router)
-app.include_router(query_routes.router)
 app.include_router(search_stats_routes.router)
-
+app.include_router(query_routes.router)
 @app.on_event("startup")
 async def startup():
     """Inicializar conexiones al arranque"""
