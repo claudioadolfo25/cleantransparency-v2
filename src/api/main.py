@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.db.database import db
+from src.db.database import db, connect_db, disconnect_db
 import logging
 import sys
 import os
