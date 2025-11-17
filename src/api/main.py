@@ -51,7 +51,7 @@ async def startup():
         database_url = os.getenv("DATABASE_URL")
         if database_url:
             logger.info("Conectando a PostgreSQL (Neon)...")
-            await db.connect(database_url)
+            await connect_db()
             logger.info("✅ Base de datos conectada")
         else:
             logger.warning("⚠️ DATABASE_URL no configurada, continuando sin BD")
@@ -64,7 +64,7 @@ async def shutdown():
     """Cerrar conexiones al apagar"""
     logger.info("Cerrando conexión a base de datos")
     try:
-        await db.disconnect()
+        await disconnect_db()
     except Exception as e:
         logger.error(f"Error cerrando BD: {e}")
 
