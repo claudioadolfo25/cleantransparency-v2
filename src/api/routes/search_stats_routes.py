@@ -28,7 +28,7 @@ async def get_proveedor_profile(rut: str) -> Dict:
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository()
         profile = await repo.get_proveedor_profile(rut)
         
         if not profile['exists']:
@@ -81,7 +81,7 @@ async def search_workflows(
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository()
         results = await repo.search_workflows(
             query=query,
             status=status,
@@ -128,7 +128,7 @@ async def get_statistics_summary() -> Dict:
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository()
         summary = await repo.get_statistics_summary()
         
         logger.info("Estadísticas generales consultadas exitosamente")

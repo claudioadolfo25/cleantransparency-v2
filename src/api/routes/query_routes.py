@@ -23,7 +23,7 @@ async def get_workflow(request_id: str) -> Dict:
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db.db)
+        repo = Art17Repository()
         workflow = await repo.get_workflow_by_request_id(request_id)
         
         if not workflow:
@@ -98,7 +98,7 @@ async def get_certificate(certificado_id: str) -> Dict:
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db.db)
+        repo = Art17Repository()
         cert = await repo.get_certificate_by_id(certificado_id)
         
         if not cert:
@@ -155,7 +155,7 @@ async def verify_certificate(certificado_id: str) -> Dict:
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db.db)
+        repo = Art17Repository()
         verification = await repo.verify_certificate_integrity(certificado_id)
         
         if not verification['exists']:
@@ -201,7 +201,7 @@ async def get_audit_trail(request_id: str) -> Dict:
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db.db)
+        repo = Art17Repository()
         trail = await repo.get_audit_trail(request_id)
         
         if not trail['exists']:
