@@ -8,20 +8,13 @@ class Art17Repository:
     def __init__(self):
         self.db = database
     
-    # ==================== MÉTODO 1: PERFIL DE PROVEEDOR ====================
-    
     async def get_proveedor_profile(self, rut: str) -> Dict:
         """Obtiene perfil completo de un proveedor"""
         try:
             query = """
                 SELECT 
-                    request_id,
-                    proveedor_nombre,
-                    proveedor_rut,
-                    status,
-                    nivel_riesgo,
-                    certificado_emitido,
-                    created_at
+                    request_id, proveedor_nombre, proveedor_rut,
+                    status, nivel_riesgo, certificado_emitido, created_at
                 FROM workflow_executions
                 WHERE proveedor_rut = :rut
                 ORDER BY created_at DESC
@@ -29,11 +22,7 @@ class Art17Repository:
             results = await self.db.fetch_all(query=query, values={"rut": rut})
             
             if not results:
-                return {
-                    "exists": False,
-                    "rut": rut,
-                    "message": "Proveedor no encontrado"
-                }
+                return {"exists": False, "rut": rut, "message": "Proveedor no encontrado"}
             
             return {
                 "exists": True,
@@ -48,52 +37,97 @@ class Art17Repository:
             logger.error(f"Error al obtener perfil de proveedor {rut}: {e}")
             raise
 
-    # ==================== MÉTODO 2: BÚSQUEDA DE WORKFLOWS ====================
-    
-    async def search_workflows(self, filters: Dict) -> List[Dict]:
-        """Busca workflows con filtros"""
+    async def search_workflows(
+        self,
+        query: Optional[str] = None,
+        status: Optional[str] = None,
+        riesgo: Optional[str] = None,
+        monto_min: Optional[float] = None,
+        monto_max: Optional[float] = None,
+        fecha_desde: Optional[str] = None,
+        fecha_hasta: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> Dict:
+        """Busca workflows con múltiples filtros"""
         try:
-            conditions = ["1=1"]
+            conditions = ["w.proveedor_rut IS NOT NULL"]
             values = {}
             
-            if filters.get("proveedor_rut"):
-                conditions.append("proveedor_rut = :proveedor_rut")
-                values["proveedor_rut"] = filters["proveedor_rut"]
+            # Búsqueda de texto libre
+            if query:
+                conditions.append("""(
+                    w.proveedor_rut ILIKE :query OR 
+                    w.proveedor_nombre ILIKE :query OR
+                    r.objeto_contrato ILIKE :query
+                )""")
+                values["query"] = f"%{query}%"
             
-            if filters.get("status"):
-                conditions.append("status = :status")
-                values["status"] = filters["status"]
+            # Filtros específicos
+            if status:
+                conditions.append("w.status = :status")
+                values["status"] = status
             
-            if filters.get("nivel_riesgo"):
-                conditions.append("nivel_riesgo = :nivel_riesgo")
-                values["nivel_riesgo"] = filters["nivel_riesgo"]
+            if riesgo:
+                conditions.append("LOWER(w.nivel_riesgo) = LOWER(:riesgo)")
+                values["riesgo"] = riesgo
             
-            query = f"""
+            if monto_min is not None:
+                conditions.append("r.monto_contrato >= :monto_min")
+                values["monto_min"] = monto_min
+            
+            if monto_max is not None:
+                conditions.append("r.monto_contrato <= :monto_max")
+                values["monto_max"] = monto_max
+            
+            if fecha_desde:
+                conditions.append("w.created_at >= :fecha_desde::timestamp")
+                values["fecha_desde"] = fecha_desde
+            
+            if fecha_hasta:
+                conditions.append("w.created_at <= :fecha_hasta::timestamp")
+                values["fecha_hasta"] = fecha_hasta
+            
+            # Query principal
+            query_sql = f"""
                 SELECT 
-                    request_id,
-                    proveedor_rut,
-                    proveedor_nombre,
-                    status,
-                    nivel_riesgo,
-                    certificado_emitido,
-                    created_at
-                FROM workflow_executions
+                    w.request_id, w.proveedor_rut, w.proveedor_nombre,
+                    w.status, w.nivel_riesgo, w.certificado_emitido,
+                    w.created_at, r.monto_contrato, r.objeto_contrato
+                FROM workflow_executions w
+                LEFT JOIN requests r ON w.request_id = r.request_id
                 WHERE {" AND ".join(conditions)}
-                ORDER BY created_at DESC
+                ORDER BY w.created_at DESC
                 LIMIT :limit OFFSET :offset
             """
             
-            values["limit"] = filters.get("limit", 50)
-            values["offset"] = filters.get("offset", 0)
+            values["limit"] = limit
+            values["offset"] = offset
             
-            results = await self.db.fetch_all(query=query, values=values)
-            return [dict(row) for row in results]
+            # Ejecutar búsqueda
+            results = await self.db.fetch_all(query=query_sql, values=values)
+            
+            # Contar total
+            count_sql = f"""
+                SELECT COUNT(*) as total
+                FROM workflow_executions w
+                LEFT JOIN requests r ON w.request_id = r.request_id
+                WHERE {" AND ".join(conditions)}
+            """
+            count_values = {k: v for k, v in values.items() if k not in ['limit', 'offset']}
+            total_result = await self.db.fetch_one(query=count_sql, values=count_values)
+            
+            return {
+                "count": len(results),
+                "total": total_result["total"] if total_result else 0,
+                "limit": limit,
+                "offset": offset,
+                "results": [dict(row) for row in results]
+            }
         except Exception as e:
             logger.error(f"Error en búsqueda de workflows: {e}")
             raise
 
-    # ==================== MÉTODO 3: ESTADÍSTICAS GENERALES ====================
-    
     async def get_statistics_summary(self) -> Dict:
         """Obtiene estadísticas generales del sistema"""
         try:
@@ -116,18 +150,13 @@ class Art17Repository:
             logger.error(f"Error al obtener estadísticas: {e}")
             raise
 
-    # ==================== MÉTODO 4: WORKFLOW POR ID ====================
-    
     async def get_workflow_by_request_id(self, request_id: str) -> Optional[Dict]:
         """Obtiene un workflow completo por request_id"""
         try:
             query = """
                 SELECT 
-                    w.*,
-                    r.proveedor_nombre as request_proveedor_nombre,
-                    r.monto_contrato,
-                    r.objeto_contrato,
-                    r.created_at as request_created_at
+                    w.*, r.proveedor_nombre as request_proveedor_nombre,
+                    r.monto_contrato, r.objeto_contrato, r.created_at as request_created_at
                 FROM workflow_executions w
                 JOIN requests r ON w.request_id = r.request_id
                 WHERE w.request_id = :request_id
@@ -138,18 +167,11 @@ class Art17Repository:
             logger.error(f"Error al obtener workflow {request_id}: {e}")
             raise
 
-    # ==================== MÉTODO 5: AUDIT TRAIL ====================
-    
     async def get_audit_trail(self, request_id: str) -> List[Dict]:
         """Obtiene el trail de auditoría de una solicitud"""
         try:
             query = """
-                SELECT 
-                    id,
-                    action,
-                    user_id,
-                    details,
-                    timestamp
+                SELECT id, action, user_id, details, timestamp
                 FROM audit_log
                 WHERE request_id = :request_id
                 ORDER BY timestamp DESC
