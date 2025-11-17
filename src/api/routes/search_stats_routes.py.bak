@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Dict, Optional
 import logging
 
-from src.db.database import db, is_connected
+from src.db.database import db
 from src.db.repositories.art17_repository import Art17Repository
 
 logger = logging.getLogger(__name__)
@@ -22,13 +22,13 @@ async def get_proveedor_profile(rut: str) -> Dict:
     - Score de confianza
     """
     try:
-        if not is_connected():
+        if not db.is_connected():
             raise HTTPException(
                 status_code=503,
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository(db.db)
         profile = await repo.get_proveedor_profile(rut)
         
         if not profile['exists']:
@@ -75,13 +75,13 @@ async def search_workflows(
     `/api/v2/workflows/art17/search?riesgo=BAJO&monto_min=10000000&limit=20`
     """
     try:
-        if not is_connected():
+        if not db.is_connected():
             raise HTTPException(
                 status_code=503,
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository(db.db)
         results = await repo.search_workflows(
             query=query,
             status=status,
@@ -122,13 +122,13 @@ async def get_statistics_summary() -> Dict:
     Ideal para dashboards y reportes ejecutivos.
     """
     try:
-        if not is_connected():
+        if not db.is_connected():
             raise HTTPException(
                 status_code=503,
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository(db.db)
         summary = await repo.get_statistics_summary()
         
         logger.info("Estadísticas generales consultadas exitosamente")
@@ -149,7 +149,7 @@ async def health_check() -> Dict:
     return {
         "status": "ok",
         "service": "cleantransparency-search-stats",
-        "database_connected": is_connected(),
+        "database_connected": db.is_connected(),
         "endpoints": {
             "proveedor_profile": "/api/v2/proveedores/{rut}/profile",
             "search": "/api/v2/workflows/art17/search",

@@ -1,14 +1,17 @@
-import databases
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 from datetime import datetime
 
+from src.db.database import database  # <- IMPORT CORRECTO
+
 logger = logging.getLogger(__name__)
 
+
 class Art17Repository:
-    def __init__(self, db: databases.Database):
-        self.db = db
-    
+    def __init__(self):
+        # Ahora la base de datos siempre vendrá desde database.py
+        self.db = database
+
     async def get_proveedor_profile(self, rut: str) -> Dict:
         """Obtiene perfil completo de un proveedor"""
         try:
@@ -26,7 +29,7 @@ class Art17Repository:
                 ORDER BY created_at DESC
             """
             results = await self.db.fetch_all(query=query, values={"rut": rut})
-            
+
             return {
                 "rut": rut,
                 "nombre": results[0]["proveedor_nombre"] if results else None,
@@ -42,19 +45,19 @@ class Art17Repository:
         try:
             conditions = ["1=1"]
             values = {}
-            
+
             if filters.get("nombre"):
                 conditions.append("proveedor_nombre ILIKE :nombre")
                 values["nombre"] = f"%{filters['nombre']}%"
-            
+
             if filters.get("rut"):
                 conditions.append("proveedor_rut = :rut")
                 values["rut"] = filters["rut"]
-            
+
             if filters.get("status"):
                 conditions.append("status = :status")
                 values["status"] = filters["status"]
-            
+
             query = f"""
                 SELECT DISTINCT ON (proveedor_rut)
                     proveedor_rut,
@@ -67,10 +70,10 @@ class Art17Repository:
                 ORDER BY proveedor_rut, created_at DESC
                 LIMIT :limit OFFSET :offset
             """
-            
+
             values["limit"] = filters.get("limit", 50)
             values["offset"] = filters.get("offset", 0)
-            
+
             results = await self.db.fetch_all(query=query, values=values)
             return [dict(row) for row in results]
         except Exception as e:

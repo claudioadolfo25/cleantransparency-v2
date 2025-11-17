@@ -29,15 +29,16 @@ def compute_hash(state: Art17State):
     return hashlib.sha256(serialized).hexdigest()
 
 async def ingest(state: Art17State):
-    from src.db.database import db
+    from src.db.database import database
     from src.db.repositories.art17_repository import Art17Repository
-    
+
     state["ingest_timestamp"] = datetime.utcnow().isoformat()
     state["hash_ingest"] = compute_hash(state)
-    
+
     try:
-        if db.db and db.is_connected():
-            repo = Art17Repository(db.db)
+        if database and database.is_connected:
+            repo = Art17Repository(database)
+
             await repo.save_request({
                 "request_id": state["request_id"],
                 "proveedor_rut": state["proveedor_rut"],
@@ -51,7 +52,7 @@ async def ingest(state: Art17State):
             logger.warning("⚠️ BD no disponible")
     except Exception as e:
         logger.error(f"❌ Error guardando en BD: {e}")
-    
+
     return state
 
 async def risk_check(state: Art17State):
@@ -68,17 +69,17 @@ async def compliance_check(state: Art17State):
     return state
 
 async def final_report(state: Art17State):
-    from src.db.database import db
+    from src.db.database import database
     from src.db.repositories.art17_repository import Art17Repository
-    
+
     state["certificado_id"] = f"CERT-{uuid.uuid4().hex[:10]}"
     state["timestamp_final"] = datetime.utcnow().isoformat()
     state["hash_final"] = compute_hash(state)
-    
+
     try:
-        if db.db and db.is_connected():
-            repo = Art17Repository(db.db)
-            
+        if database and database.is_connected:
+            repo = Art17Repository(database)
+
             workflow_id = await repo.save_workflow_execution({
                 "request_id": state["request_id"],
                 "workflow_type": "art17",
@@ -92,16 +93,16 @@ async def final_report(state: Art17State):
                 "timestamp_final": state["timestamp_final"],
                 "metadata": "{}"
             })
-            
+
             state["workflow_id"] = workflow_id
-            
+
             await repo.save_certificate({
                 "certificado_id": state["certificado_id"],
                 "request_id": state["request_id"],
                 "hash_final": state["hash_final"],
                 "issued_at": state["timestamp_final"]
             })
-            
+
             await repo.save_request({
                 "request_id": state["request_id"],
                 "proveedor_rut": state["proveedor_rut"],
@@ -110,11 +111,13 @@ async def final_report(state: Art17State):
                 "objeto_contrato": state.get("objeto_contrato"),
                 "status": "completed"
             })
-            
-            logger.info(f"✅ Certificado: {state['certificado_id']}")
+
+            logger.info(f"✅ Certificado emitido: {state['certificado_id']}")
+        else:
+            logger.warning("⚠️ BD no disponible en final_report")
     except Exception as e:
-        logger.error(f"❌ Error finalizando: {e}")
-    
+        logger.error(f"❌ Error finalizando workflow: {e}")
+
     return state
 
 def build():

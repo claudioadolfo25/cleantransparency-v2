@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Dict
 import logging
 
-from src.db.database import db, is_connected
+from src.db.database import db
 from src.db.repositories.art17_repository import Art17Repository
 
 logger = logging.getLogger(__name__)
@@ -17,13 +17,13 @@ async def get_workflow(request_id: str) -> Dict:
     Obtiene información completa de un workflow Art17 por request_id
     """
     try:
-        if not is_connected():
+        if not db.is_connected():
             raise HTTPException(
                 status_code=503,
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository(db.db)
         workflow = await repo.get_workflow_by_request_id(request_id)
         
         if not workflow:
@@ -92,13 +92,13 @@ async def get_certificate(certificado_id: str) -> Dict:
     Obtiene información completa de un certificado por su ID
     """
     try:
-        if not is_connected():
+        if not db.is_connected():
             raise HTTPException(
                 status_code=503,
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository(db.db)
         cert = await repo.get_certificate_by_id(certificado_id)
         
         if not cert:
@@ -149,13 +149,13 @@ async def verify_certificate(certificado_id: str) -> Dict:
     Verifica la integridad y validez de un certificado
     """
     try:
-        if not is_connected():
+        if not db.is_connected():
             raise HTTPException(
                 status_code=503,
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository(db.db)
         verification = await repo.verify_certificate_integrity(certificado_id)
         
         if not verification['exists']:
@@ -195,13 +195,13 @@ async def get_audit_trail(request_id: str) -> Dict:
     Obtiene el trail completo de auditoría para una solicitud
     """
     try:
-        if not is_connected():
+        if not db.is_connected():
             raise HTTPException(
                 status_code=503,
                 detail="Base de datos no disponible"
             )
         
-        repo = Art17Repository(db)
+        repo = Art17Repository(db.db)
         trail = await repo.get_audit_trail(request_id)
         
         if not trail['exists']:
@@ -242,7 +242,7 @@ async def health_check() -> Dict:
     return {
         "status": "ok",
         "service": "cleantransparency-queries",
-        "database_connected": is_connected(),
+        "database_connected": db.is_connected(),
         "endpoints": {
             "workflow": "/api/v2/workflows/art17/{request_id}",
             "certificate": "/api/v2/certificates/{certificado_id}",
