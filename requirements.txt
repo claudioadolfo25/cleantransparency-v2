@@ -58,4 +58,3 @@ watchfiles==1.1.1 ; python_version >= "3.11" and python_version < "4.0"
 websockets==15.0.1 ; python_version >= "3.11" and python_version < "4.0"
 yarl==1.22.0 ; python_version >= "3.11" and python_version < "4.0"
 databases[postgresql]
-google-cloud-firestore>=2.14.0

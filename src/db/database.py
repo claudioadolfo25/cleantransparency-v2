@@ -1,47 +1,56 @@
-from google.cloud import firestore
-from google.cloud.firestore_v1.base_query import FieldFilter
+import databases
 import logging
 from typing import Optional
+import os
 
 logger = logging.getLogger(__name__)
 
 class Database:
     def __init__(self):
-        self._db: Optional[firestore.AsyncClient] = None
+        self._db: Optional[databases.Database] = None
         self._connected = False
     
-    async def connect(self):
-        """Conecta a Firestore"""
+    async def connect(self, database_url: str = None):
+        """Conecta a PostgreSQL (Neon)"""
         try:
-            # Usar AsyncClient para operaciones asíncronas
-            self._db = firestore.AsyncClient(
-                project="cleantransparency-prod2",
-                database="cleantransparency-db"
-            )
+            url = database_url or os.getenv("DATABASE_URL")
+            
+            if not url:
+                raise ValueError("❌ DATABASE_URL no configurada")
+            
+            logger.info(f"Conectando a PostgreSQL: {url[:30]}...")
+            self._db = databases.Database(url)
+            await self._db.connect()
             self._connected = True
-            logger.info("✅ Conectado a Firestore: cleantransparency-db")
+            logger.info("✅ Conectado a PostgreSQL (Neon)")
         except Exception as e:
-            logger.error(f"❌ Error conectando a Firestore: {e}")
+            logger.error(f"❌ Error conectando a PostgreSQL: {e}")
             self._connected = False
             raise
     
     async def disconnect(self):
         """Cierra la conexión"""
         if self._db:
-            self._db.close()
+            await self._db.disconnect()
             self._connected = False
-            logger.info("Conexión a Firestore cerrada")
+            logger.info("Conexión a PostgreSQL cerrada")
     
     def is_connected(self) -> bool:
-        """Verifica si está conectado"""
         return self._connected and self._db is not None
     
     @property
-    def db(self) -> firestore.AsyncClient:
-        """Retorna la instancia de Firestore"""
+    def db(self) -> databases.Database:
         if not self.is_connected():
-            raise RuntimeError("Base de datos no conectada. Llama a connect() primero.")
+            raise RuntimeError("Base de datos no conectada")
         return self._db
+    
+    async def fetch_all(self, query: str, values: dict = None):
+        return await self._db.fetch_all(query=query, values=values or {})
+    
+    async def fetch_one(self, query: str, values: dict = None):
+        return await self._db.fetch_one(query=query, values=values or {})
+    
+    async def execute(self, query: str, values: dict = None):
+        return await self._db.execute(query=query, values=values or {})
 
-# Instancia global
 db = Database()
