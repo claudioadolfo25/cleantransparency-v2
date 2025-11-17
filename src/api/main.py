@@ -76,7 +76,7 @@ async def health_check():
         "status": "healthy",
         "service": "cleantransparency-v2",
         "version": "2.0-fase2a",
-        "database_connected": db.is_connected()
+        "database_connected": db.is_connected if db else False
     }
 
 @app.get("/")
