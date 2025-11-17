@@ -1,77 +1,40 @@
-"""
-Database module for connecting to Neon PostgreSQL
-"""
+from databases import Database
 import os
-import asyncpg
-from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
-class Database:
-    """Database connection manager for Neon PostgreSQL"""
-    
+class DatabaseManager:
     def __init__(self):
-        self.pool: Optional[asyncpg.Pool] = None
-        self.connection_string = os.getenv(
-            'DATABASE_URL',
-            os.getenv('NEON_DATABASE_URL')
-        )
-    
+        self.db = None
+        self.connected = False
+        
     async def connect(self):
-        """Establish connection pool to database"""
-        if self.pool is None:
-            try:
-                self.pool = await asyncpg.create_pool(
-                    self.connection_string,
-                    min_size=2,
-                    max_size=10,
-                    command_timeout=60,
-                    timeout=30
-                )
-                logger.info("✅ Connected to Neon PostgreSQL database")
+        """Intenta conectar a la base de datos"""
+        try:
+            database_url = os.getenv("DATABASE_URL")
+            if not database_url:
+                logger.warning("⚠️ DATABASE_URL no configurada, modo sin BD")
+                return
                 
-                async with self.pool.acquire() as conn:
-                    version = await conn.fetchval('SELECT version()')
-                    logger.info(f"Database version: {version}")
-                    
-            except Exception as e:
-                logger.error(f"❌ Failed to connect to database: {e}")
-                raise
+            self.db = Database(database_url)
+            await self.db.connect()
+            self.connected = True
+            logger.info("✅ Base de datos conectada")
+        except Exception as e:
+            logger.error(f"❌ Failed to connect to database: {e}")
+            logger.warning("⚠️ Continuando sin conexión a BD")
+            self.connected = False
     
     async def disconnect(self):
-        """Close database connection pool"""
-        if self.pool is not None:
-            await self.pool.close()
-            self.pool = None
-            logger.info("Disconnected from database")
+        """Desconecta de la base de datos si está conectada"""
+        if self.db and self.connected:
+            await self.db.disconnect()
+            logger.info("Base de datos desconectada")
     
-    async def execute(self, query: str, *args):
-        """Execute a query without returning results"""
-        async with self.pool.acquire() as conn:
-            return await conn.execute(query, *args)
-    
-    async def fetch(self, query: str, *args):
-        """Fetch all rows from a query"""
-        async with self.pool.acquire() as conn:
-            return await conn.fetch(query, *args)
-    
-    async def fetchrow(self, query: str, *args):
-        """Fetch single row from a query"""
-        async with self.pool.acquire() as conn:
-            return await conn.fetchrow(query, *args)
-    
-    async def fetchval(self, query: str, *args):
-        """Fetch single value from a query"""
-        async with self.pool.acquire() as conn:
-            return await conn.fetchval(query, *args)
+    def is_connected(self):
+        """Retorna True si la BD está conectada"""
+        return self.connected
 
-# Global database instance
-db = Database()
-
-# Dependency for FastAPI
-async def get_db():
-    """FastAPI dependency for database access"""
-    if db.pool is None:
-        await db.connect()
-    return db
+# Instancia global
+db = DatabaseManager()
