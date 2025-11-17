@@ -23,7 +23,8 @@ class Database:
             logger.info("🔌 Desconectado de PostgreSQL")
     
     def is_connected(self):
-        return self.db and self.db.is_connected
+        # is_connected es una PROPIEDAD, no un método
+        return self.db is not None and self.db.is_connected
 
 # Instancia global que usa todo el proyecto
 db = Database(DATABASE_URL)
