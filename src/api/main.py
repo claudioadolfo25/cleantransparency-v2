@@ -60,9 +60,10 @@ async def startup_event():
     logger.info("=== CLEANTRANSPARENCY v2 API iniciando ===")
     logger.info("Puerto: 8080")
     logger.info("Docs disponibles en: /docs")
-#Conectar a la base de datos    
-   try:
+    
+    # Conectar a la base de datos
+    try:
         await db.connect()
         logger.info("✅ Base de datos conectada")
     except Exception as e:
-        logger.error(f"❌ Error conectando a BD: {e}"
+        logger.error(f"❌ Error conectando a BD: {e}")
