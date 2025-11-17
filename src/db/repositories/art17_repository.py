@@ -217,3 +217,21 @@ class Art17Repository:
         except Exception as e:
             logger.error(f"Error obteniendo estadísticas: {e}")
             raise
+
+    # ==================== MÉTODO ADICIONAL: GET WORKFLOW BY ID ====================
+    
+    async def get_workflow_by_request_id(self, request_id: str) -> Optional[Dict]:
+        """Obtiene un workflow por su request_id"""
+        try:
+            doc = await self.db.collection(self.collection).document(request_id).get()
+            
+            if not doc.exists:
+                return None
+            
+            data = doc.to_dict()
+            data['request_id'] = doc.id
+            return data
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo workflow {request_id}: {e}")
+            raise
